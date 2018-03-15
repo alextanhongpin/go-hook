@@ -29,3 +29,16 @@ The Webhook API allows users to subscribe to events and provide a callback url w
 ## Internal and External Webhook
 
 If the webhook is open for public to consume (e.g. Slack, Github), then it will require certain authorization. The identity of the creator needs to be embedded during the creation of the webhook too.
+
+## Security
+
+Some thoughts and scenarios that could happen:
+- can I register any URL?
+- do I need to confirm the URL I am posting at?
+- can I post to other user's URL (DDOS)?
+- how can I verify once-only delivery?
+- what if the server to be posted is down?
+- can I subscribe multiple urls for the same topic?
+- are there any retry policy?
+- batching requests?
+
