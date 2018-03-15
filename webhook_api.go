@@ -25,6 +25,26 @@ func (w *Webhook) BeforeCreate(scope *gorm.Scope) error {
 	return scope.SetColumn("ID", uuid.NewV4().String())
 }
 
+type WebhookService struct {
+	DB *gorm.DB
+}
+
+func (svc *WebhookService) Get(id string) Webhook {
+	var webhook Webhook
+	svc.DB.First(&webhook, "id = ?", id)
+	return webhook
+}
+
+func (svc *WebhookService) All() []Webhook {
+	var webhooks []Webhook
+	svc.DB.Find(&webhooks)
+	return webhooks
+}
+
+func (svc *WebhookService) Migrate() {
+	svc.DB.AutoMigrate(&Webhook{})
+}
+
 func main() {
 	db, err := gorm.Open("postgres", "host=localhost port=5432 user=gorm dbname=webhook password=123456 sslmode=disable")
 	if err != nil {
@@ -32,33 +52,10 @@ func main() {
 	}
 	defer db.Close()
 
-	// Migrate the schema
-	db.AutoMigrate(&Webhook{})
+	svc := WebhookService{
+		DB: db,
+	}
 
-	// createWebhook(db)
-	getWebhook(db)
-}
-
-func createWebhook(db *gorm.DB) {
-	// Create a new webhook
-	db.Create(&Webhook{
-		IsVerified:   false,
-		Name:         "haha webhook",
-		Status:       "haha",
-		CallbackURLs: pq.StringArray{"http:localhost:4000/webhooks"},
-		Events:       pq.StringArray{"haha:create", "haha:update", "haha:delete"},
-		Version:      "0.0.1",
-	})
-}
-
-func getWebhook(db *gorm.DB) {
-	// Get the webhooks
-	var webhooks []Webhook
-	db.Find(&webhooks)
-	log.Printf("found many: %#v\n", webhooks)
-
-	// Get a webhook by id
-	var webhook Webhook
-	db.First(&webhook, "id = ?", "f7bdc765-2edc-4973-b346-9ec39e9b78ce")
+	webhook := svc.Get("f7bdc765-2edc-4973-b346-9ec39e9b78ce")
 	log.Printf("found one: %+v\n", webhook)
 }
