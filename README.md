@@ -119,3 +119,13 @@ Some thoughts and scenarios that could happen:
 - are there any retry policy?
 - batching requests?
 - how do I deal with changes to the event name
+
+## Dependencies
+
+```bash
+# Go client
+go get github.com/nats-io/go-nats
+
+# Server
+go get github.com/nats-io/gnatsd
+```

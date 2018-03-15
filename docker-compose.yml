@@ -11,3 +11,10 @@ services:
       - 5432:5432
     volumes:
       - ./tmp/postgres:/var/lib/postgresql/data
+  nats:
+    image: nats:1.0.6-linux
+    restart: always
+    ports:
+      - 4222:4222
+      - 6222:6222
+      - 8222:8222

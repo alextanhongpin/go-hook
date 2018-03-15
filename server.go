@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"time"
+
+	nats "github.com/nats-io/go-nats"
 )
 
 type Webhook struct {
@@ -45,7 +48,21 @@ func (w *Webhook) Broadcast() error {
 	return nil
 }
 
+func (w *Webhook) Publish(nc *nats.Conn) error {
+	return nc.Publish("foo", []byte("hello world"))
+}
+
+func (w *Webhook) Subscribe(nc *nats.Conn) error {
+	nc.Subscribe("foo", func(m *nats.Msg) {
+		fmt.Println("received a message: %s\n", string(m.Data))
+	})
+}
+
 func main() {
+	nc, err := nats.Connect(nats.DefaultURL)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/webhooks", func(w http.ResponseWriter, r *http.Request) {
