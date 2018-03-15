@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Webhook API</title>
+		<link rel="stylesheet" href="./index.css">
+	</head>
+
+	<body>
+		<h1>Webhook API</h1>
+
+		<div>
+			<form action="">
+
+				<div>
+					<label for=""><b>Callback URL:</b></label>
+					<br>
+					<input type="text" placeholder="http://example.com/"/>
+
+					<button>Verify</button>	
+				</div>
+
+				<br>
+
+				<div>
+					<label for=""><b>Events:</b></label>
+					<br>
+					<label>
+						<input type="checkbox" value="books:create"/>
+						<span>books:create</span>
+					</label>
+					<br>
+					<label>
+						<input type="checkbox" value="books:update"/>
+						<span>books:update</span>
+					</label>
+					<br>
+					<label>
+						<input type="checkbox" value="books:delete"/>
+						<span>books:delete</span>
+					</label>
+				</div>
+
+				<br>
+
+				<button>Submit</button>
+
+			</form>
+		</div>
+
+		<script src="./index.js"></script>
+	</body>
+</html>

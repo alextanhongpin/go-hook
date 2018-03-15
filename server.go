@@ -10,17 +10,22 @@ import (
 )
 
 type Webhook struct {
-	Event     string
-	CreatedAt time.Time
-	Payload   interface{}
+	ID        string      // For tracing purpose
+	CreatedAt time.Time   // For tracing purpose
+	UserID    string      // Validate that it can only be sent to this user (to avoid spamming)
+	URL       string      // The URL pointing to the webhook worker
+	Event     string      // The name of the event
+	Payload   interface{} // The payload to be posted
 }
 
-func (w *Webhook) Broadcast(url string) error {
+// Broadcast posts the event and payload to the callback url.
+// Potentially change this to send to a message queue for durability.
+func (w *Webhook) Broadcast() error {
 	payload, err := json.Marshal(w)
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer([]byte(payload)))
+	req, err := http.NewRequest("POST", w.URL, bytes.NewBuffer([]byte(payload)))
 	if err != nil {
 		return err
 	}
@@ -44,8 +49,8 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/webhooks", func(w http.ResponseWriter, r *http.Request) {
-		wh := makeWebhook("get_item", `{"hello": "world"}`)
-		if err := wh.Broadcast("http://localhost:4000/webhooks"); err != nil {
+		wh := makeWebhook("http://localhost:4000/webhooks", "GET_ITEM", `{"hello": "world"}`)
+		if err := wh.Broadcast(); err != nil {
 			fmt.Printf("Error sending to webhook: %v\n", err)
 		}
 		fmt.Fprintf(w, `{"hello": "%s"}`, "world")
@@ -54,7 +59,7 @@ func main() {
 	http.ListenAndServe(":8080", mux)
 }
 
-func makeWebhook(event string, payload interface{}) *Webhook {
+func makeWebhook(url, event string, payload interface{}) *Webhook {
 	return &Webhook{
 		Event:     event,
 		CreatedAt: time.Now(),
