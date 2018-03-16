@@ -1,10 +1,14 @@
-# webhook-server
-A naive implementation of webhook server
+# Webhook Server
+
+As a developer, I want to send subscribe to events from an API, in order to publish it to a webhook server.
 
 
 ## Naive Version
 
-The naive version will just contain a minimum of two servers - one is the __API server__ that will broadcast a payload upon certain event (e.g. create, update, delete) and another is one the __Webhook server__ that will receive the payload. It is just a simple `POST` request to the webhook server, and the payload can only be sent to a single client.
+The naive version will just contain a minimum of two servers:
+
+- __API server__ is responsible for publishing the event (e.g. create, update, delete) and associated payload to the webhook server. For simplicity, the event is published using a `POST` request, and only one recipient can be registered at a time.
+- __Webhook server__ is the end client. The __API Server__ will post to this endpoint.
 
 ## Better Version
 
@@ -33,7 +37,7 @@ The Webhook API allows users to subscribe to events and provide a callback url w
 
 Webhook:
 
-```json
+```js
 {
 	"id": "1",
 	"created_at": "",
@@ -50,7 +54,7 @@ Webhook:
 
 Webhook Events:
 
-```json
+```js
 {
 	"id": "",
 	"name": "books:get",
@@ -68,7 +72,7 @@ Webhook Events:
 
 Webhook API:
 
-```json
+```js
 {
 	"name": "books api",
 	"description": "books that serves api",
