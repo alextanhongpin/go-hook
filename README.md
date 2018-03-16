@@ -5,12 +5,28 @@ As a developer, I want to send subscribe to events from an API, in order to publ
 
 ## Naive Version
 
+```
+[ API Server ] POST /callback_urls --> [ Webhook Server ]
+```
+
 The naive version will just contain a minimum of two servers:
 
 - __API server__ is responsible for publishing the event (e.g. create, update, delete) and associated payload to the webhook server. For simplicity, the event is published using a `POST` request, and only one recipient can be registered at a time.
 - __Webhook server__ is the end client. The __API Server__ will post to this endpoint.
 
 ## Better Version
+
+```bash
+# User subscribes to the webhook
+[ User ] POST /webhooks?callback_urls=http://example.com --> [ Webhook API ]
+
+# To handle the load, the payload is sent to the queue first
+[ API Server ] SendToQueue --> [ Webhook Worker ] POST /callback_urls --> [ Webhook Server ]
+                                        |
+				        | Check subscribers and get their callback urls
+					|
+			         [ Webhook API ]
+```
 
 A better version is to create a separate API that will allow user's to select which events they can subscribe to, and what callback url the payload will be posted to.
 
