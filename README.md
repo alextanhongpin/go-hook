@@ -40,14 +40,14 @@ The __API Server__ will be sending the message to a queue too, instead of a dire
 
 The Webhook API allows users to subscribe to events and provide a callback url where the events will be posted.
 
-| Endpoint | Description | 
-|--        |--           |
-| GET `/webhooks` | Get a list of webhook subscriptions | 
-| POST `/webhooks` | Create a webhook with the list of events to be subscribed, and the callback url | 
-| DELETE `/webhooks` | Clear all registered webhooks |
-| GET `/webhooks/{id}` | Get the info for a specific webhook |
-| PUT `/webhooks/{id}` | Update the info for a specific webhook |
-| DELETE `/webhooks/{id}` | Delete a webhook by id |
+| Method | Endpoint | Description | 
+|--      |--        |--           |
+| GET    | `/webhooks` | Get a list of webhook subscriptions | 
+| POST   | `/webhooks` | Create a webhook with the list of events to be subscribed, and the callback url | 
+| DELETE | `/webhooks` | Clear all registered webhooks |
+| GET    | `/webhooks/{id}` | Get the info for a specific webhook |
+| PUT    | `/webhooks/{id}` | Update the info for a specific webhook |
+| DELETE | `/webhooks/{id}` | Delete a webhook by id |
 
 ## Webhook API Model
 
