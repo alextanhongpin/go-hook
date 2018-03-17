@@ -135,6 +135,7 @@ Name: Book Webhook
 Description: Contains book events that user can subscribe to
 Created At: 1s ago
 Updated At: 1s ago
+Status: Running
 
 Callback Urls (comma-separated): _____________________ [ VERIFY ]
 
@@ -146,7 +147,34 @@ Events:
 [ OK ]
 ```
 
-## Security
+## Logs
+
+There are a number of useful data that can be logged here:
+
+- range can be average, min, max for hourly/daily/weekly/monthly/yearly
+- response time
+- count for each topics
+- number of events received
+- subscribe/unsubscribe rate
+- registration count
+- message delivery rate
+- failure rate
+- subscriber/events received ratio
+- uptime
+- other SLAs
+
+Example logging format:
+
+```
+[DATE] EVENT_NAME CALLBACK_URL UNIQUE_ID PAYLOAD
+
+[2017-01-01 12:00:32] book:create http://localhost:4000/webhooks 200 qwCs41z {"event_type": "..."}
+[2017-01-01 12:00:32] book:update http://localhost:4000/webhooks 400 r21SfcX {"event_type": "..."}
+```
+
+The logs can be stored in another data source, in order to allow users to `replay` the events, in case they miss it.
+
+## Security and Performance Optimization
 
 Some thoughts and scenarios that could happen:
 
@@ -159,6 +187,7 @@ Some thoughts and scenarios that could happen:
 - are there any retry policy?
 - batching requests?
 - how do I deal with changes to the event name
+- if the callback url is not valid, after posting n amount of errors, it should be unsubscribed automatically, the logs however will persist in a storage so that user can replay the events
 
 ## Interface
 
