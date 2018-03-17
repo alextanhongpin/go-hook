@@ -1,13 +1,6 @@
 package webhook
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
-	"log"
-	"net/http"
-	"strings"
 	"time"
 )
 
@@ -26,34 +19,34 @@ type Webhook interface {
 	Publish(name string, payload interface{}) error
 	Subscribe(name string, fn Func) error
 	Post(url, name string, payload interface{}) error
-	Info(name string) error
+	Disco(name string) error
 	Fetch(event string) ([]string, error)
 	Enable(resource, event, callbackURL string) error
 	Disable(resource, event, callbackURL string) error
 }
 
-type webhook struct {
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	Version     string    `json:"version"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-	Events      []Event   `json:"events"`
-	Queue       Queue     `json:"-"`
-	Store       Store     `json:"-"`
-}
-
+// Payload represents the message that is passed through the queue with additional metadata
 type Payload struct {
+	Subject   string
 	RequestID string
 	Body      interface{}
-	CreatedAt time.Time
+	SentAt    time.Time
 }
 
+// Option returns a function to the pointer of webhook
 type Option func(*webhook)
 
+// SetName takes a name and overwrites the default name
 func SetName(name string) Option {
-	return func(wk *webhook) {
-		wk.Name = name
+	return func(w *webhook) {
+		w.Name = name
+	}
+}
+
+// SetDescription takes a description and overwrites the default description
+func SetDescription(desc string) Option {
+	return func(w *webhook) {
+		w.Description = desc
 	}
 }
 
@@ -69,125 +62,19 @@ func New(opts ...Option) Webhook {
 		Queue:       NewQueue(Nats),
 		Store:       NewStore(Consul),
 	}
+
 	for _, o := range opts {
 		o(&wh)
 	}
 	return &wh
 }
 
-// Register will create a new entry for the webhook into the store
-func (w *webhook) Register(events ...Event) error {
-	w.Events = events
-
-	value, err := json.Marshal(w)
-	if err != nil {
-		return err
+// BasicEvent takes a name and return an Event
+func BasicEvent(name string) Event {
+	return Event{
+		Name:        name,
+		Description: "",
+		Label:       "",
+		Enabled:     true,
 	}
-
-	return w.Store.Put(w.Name, value)
-}
-
-// Enable will add the event and the callback url to the store
-func (w *webhook) Enable(resource, event, callbackURL string) error {
-	keys := []string{resource, event, callbackURL}
-	return w.Store.Put(strings.Join(keys, "/"), []byte(callbackURL))
-}
-
-// Disable will remove the event and the callback url from the store
-func (w *webhook) Disable(resource, event, callbackURL string) error {
-	keys := []string{resource, event, callbackURL}
-	return w.Store.Delete(strings.Join(keys, "/"))
-}
-
-// Fetch will fetch all events with the prefix
-func (w *webhook) Fetch(prefix string) ([]string, error) {
-	return w.Store.List(prefix)
-}
-
-// Info returns the info of the webhook based on the name
-func (w *webhook) Info(eventType string) error {
-	val, err := w.Store.Get(eventType)
-	if err != nil {
-		return err
-	}
-
-	var wh webhook
-	if err := json.Unmarshal(val, &wh); err != nil {
-		return err
-	}
-	w.Name = wh.Name
-	w.Description = wh.Description
-	w.Version = wh.Version
-	w.CreatedAt = wh.CreatedAt
-	w.UpdatedAt = wh.UpdatedAt
-	w.Events = wh.Events
-	return err
-}
-
-// Unregister will remove the webhook from the store
-func (w *webhook) Unregister(name string) error {
-	return nil
-}
-
-// Publish will send the payload to the registered topic
-func (w *webhook) Publish(eventType string, payload interface{}) error {
-	if err := w.checkExist(eventType); err != nil {
-		return err
-	}
-	// Content enricher - enrich the content with useful information such as UUID and also timestamp
-	// publish
-	bytePayload, err := json.Marshal(payload)
-	if err != nil {
-		return err
-	}
-	log.Println("sending to", eventType)
-	return w.Queue.Publish(eventType, bytePayload)
-}
-
-// Subscribe will listen to the registered topic for the payload
-func (w *webhook) Subscribe(eventType string, fn Func) error {
-	if err := w.checkExist(eventType); err != nil {
-		return err
-	}
-	return w.Queue.Subscribe(eventType, fn)
-}
-
-// Post will send a POST request to the targetted endpoint
-func (w *webhook) Post(url, eventType string, payload interface{}) error {
-	// payload, err := json.Marshal(payload)
-	// if err != nil {
-	// 	return err
-	// }
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer([]byte("payload")))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	fmt.Println("response:", string(body))
-	return nil
-}
-
-func (w *webhook) checkExist(eventType string) error {
-	var found bool
-	for i := 0; i < len(w.Events); i++ {
-		evt := w.Events[i]
-		if evt.Name == eventType {
-			found = true
-		}
-	}
-	if !found {
-		return fmt.Errorf("publishError: event with the name %s is not registered", eventType)
-	}
-	return nil
 }

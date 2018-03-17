@@ -15,26 +15,20 @@ func main() {
 	hook := webhook.New(webhook.SetName("book"))
 
 	if err := hook.Register(
-		webhook.Event{Name: "book:create"},
-		webhook.Event{Name: "book:update"},
-		webhook.Event{Name: "book:delete"},
+		webhook.BasicEvent("book.*"),
+		webhook.BasicEvent("book.create"),
+		webhook.BasicEvent("book.update"),
+		webhook.BasicEvent("book.delete"),
 	); err != nil {
 		panic(err)
 	}
-	log.Println("successfully registered events")
 
-	if err := hook.Subscribe("book", func(msg []byte) {
-		log.Println("got message:", string(msg))
-	}); err != nil {
+	if err := hook.Publish("book.create", Payload{Name: "hello world"}); err != nil {
 		log.Println(err)
 	}
 
-	if err := hook.Publish("book:create", Payload{Name: "hello world"}); err != nil {
+	if err := hook.Publish("book.update", Payload{Name: "hi world"}); err != nil {
 		log.Println(err)
 	}
-
-	if err := hook.Publish("book:create", Payload{Name: "hi world"}); err != nil {
-		log.Println(err)
-	}
-	time.Sleep(10 * time.Second)
+	time.Sleep(1 * time.Second)
 }

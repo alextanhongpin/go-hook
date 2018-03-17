@@ -213,4 +213,7 @@ go get github.com/nats-io/go-nats
 
 # Server
 go get github.com/nats-io/gnatsd
+
+# UUID
+go get github.com/satori/go.uuid
 ```
