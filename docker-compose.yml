@@ -1,16 +1,17 @@
 version: '3.1'
 services:
-  db:
-    image: postgres:10.3
-    restart: always
-    environment:
-      POSTGRES_USER: gorm
-      POSTGRES_PASSWORD: 123456
-      POSTGRES_DB: webhook
-    ports:
-      - 5432:5432
-    volumes:
-      - ./tmp/postgres:/var/lib/postgresql/data
+  # db:
+  #   image: postgres:10.3
+  #   restart: always
+  #   environment:
+  #     POSTGRES_USER: gorm
+  #     POSTGRES_PASSWORD: 123456
+  #     POSTGRES_DB: webhook
+  #   ports:
+  #     - 5432:5432
+  #   volumes:
+  #     - ./tmp/postgres:/var/lib/postgresql/data
+
   nats:
     image: nats:1.0.6-linux
     restart: always
@@ -18,3 +19,9 @@ services:
       - 4222:4222
       - 6222:6222
       - 8222:8222
+    
+  consul:
+    image: consul:1.0.6
+    restart: always
+    ports:
+      - 8500:8500
