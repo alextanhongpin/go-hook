@@ -126,6 +126,26 @@ It is preferable to store each event and each resource in a new row to simplify 
 
 If the webhook is open for public to consume (e.g. Slack, Github), then it will require certain authorization. The identity of the creator needs to be embedded during the creation of the webhook too.
 
+## UI
+
+The UI for selecting the topics to subscribe should contain the bare minimum:
+
+```
+Name: Book Webhook
+Description: Contains book events that user can subscribe to
+Created At: 1s ago
+Updated At: 1s ago
+
+Callback Urls (comma-separated): _____________________ [ VERIFY ]
+
+Events:
+[x] book:create
+[x] book:update
+[-] book:delete
+
+[ OK ]
+```
+
 ## Security
 
 Some thoughts and scenarios that could happen:
@@ -140,7 +160,23 @@ Some thoughts and scenarios that could happen:
 - batching requests?
 - how do I deal with changes to the event name
 
+## Interface
+
+The webhook package should contain the following interface
+
+| Method | Description |
+|--      |--           |
+| register | Register a new service and events that users can subscribe to. If the service already exists, it will be updated. |
+| deregister | Remove an existing service from the store |
+| update | Update an existing service, if the service does not exist, throws an error |
+| publish | Publish the payload to a topic |
+| subscribe | Subscribes to the topic and receives the payload |
+| fetch | Get all the topics subscribed and the equivalent callback urls to be stored in memory as a dictionary |
+
 ## Dependencies
+
+- Nats as the messaging queue
+- Consul as the key-value store
 
 ```bash
 # Go client
