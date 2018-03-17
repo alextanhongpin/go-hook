@@ -62,6 +62,50 @@ func TestStore_PutGetConsul(t *testing.T) {
 	}
 }
 
-// func TestStore_PutPrefixConsul(t *testing.T) {
+func TestStore_PutPrefixConsul(t *testing.T) {
+	store := NewStore(Consul)
+	key := "key"
+	val := "val"
 
-// }
+	err := store.Put(key, []byte(val))
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+
+	err = store.Delete(key)
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+
+	_, err = store.Get(key)
+	if err == nil {
+		t.Errorf("expected error, got %v", err)
+	}
+}
+
+func TestStore_ListConsul(t *testing.T) {
+	store := NewStore(Consul)
+
+	testTables := []struct {
+		key, val string
+	}{
+		{"key/foo", "val1"},
+		{"key/bar", "val2"},
+	}
+
+	for _, test := range testTables {
+		err := store.Put(test.key, []byte(test.val))
+		if err != nil {
+			t.Errorf("expected no error, got %v", err)
+		}
+	}
+
+	vals, err := store.List("key")
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+
+	if len(vals) != 2 {
+		t.Errorf("expected len to be 2, got %d", len(vals))
+	}
+}

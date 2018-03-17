@@ -19,6 +19,15 @@ func (store *inMemoryStore) Get(key string) ([]byte, error) {
 	return val, nil
 }
 
+func (store *inMemoryStore) Delete(key string) error {
+	// delete(store.kv[key])
+	return nil
+}
+
+func (store *inMemoryStore) List(key string) ([]string, error) {
+	return nil, nil
+}
+
 // NewInMemoryStore returns a new in-memory store
 func NewInMemoryStore() Store {
 	return &inMemoryStore{

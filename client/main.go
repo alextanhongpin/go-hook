@@ -12,47 +12,29 @@ type Payload struct {
 }
 
 func main() {
-	wh := webhook.New("book", "book webhook")
+	hook := webhook.New(webhook.SetName("book"))
 
-	if err := wh.Info("book"); err != nil {
-		log.Println(err)
+	if err := hook.Register(
+		webhook.Event{Name: "book:create"},
+		webhook.Event{Name: "book:update"},
+		webhook.Event{Name: "book:delete"},
+	); err != nil {
+		panic(err)
 	}
-	log.Println(wh)
+	log.Println("successfully registered events")
 
-	// err := wh.Register([]webhook.WebhookEvent{
-	// 	webhook.WebhookEvent{Name: "book:create"},
-	// 	webhook.WebhookEvent{Name: "book:update"},
-	// 	webhook.WebhookEvent{Name: "book:delete"},
-	// })
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// log.Println("successfully registered webhook event")
-
-	// err := wh.Subscribe("book:create", func(msg []byte) {
-	// 	log.Println("got message:", string(msg))
-	// })
-	// if err != nil {
-	// 	log.Println(err)
-	// }
-	err = wh.Publish("book:create", Message{Name: "hello world"})
-	if err != nil {
+	if err := hook.Subscribe("book", func(msg []byte) {
+		log.Println("got message:", string(msg))
+	}); err != nil {
 		log.Println(err)
 	}
 
-	err = wh.Publish("book:create", Message{Name: "hi world"})
-	if err != nil {
+	if err := hook.Publish("book:create", Payload{Name: "hello world"}); err != nil {
+		log.Println(err)
+	}
+
+	if err := hook.Publish("book:create", Payload{Name: "hi world"}); err != nil {
 		log.Println(err)
 	}
 	time.Sleep(10 * time.Second)
-	// mux := http.NewServeMux()
-	// mux.HandleFunc("/webhooks", func(w http.ResponseWriter, r *http.Request) {
-	// 	wh := makeWebhook("http://localhost:4000/webhooks", "GET_ITEM", `{"hello": "world"}`)
-	// 	if err := wh.Broadcast(); err != nil {
-	// 		fmt.Printf("Error sending to webhook: %v\n", err)
-	// 	}
-	// 	fmt.Fprintf(w, `{"hello": "%s"}`, "world")
-	// })
-	// fmt.Println("server: listening to port *:8080. press ctrl+c to cancel.")
-	// http.ListenAndServe(":8080", mux)
 }

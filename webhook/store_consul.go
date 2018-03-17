@@ -30,6 +30,25 @@ func (store *consulStore) Get(key string) ([]byte, error) {
 	return kv.Value, nil
 }
 
+func (store *consulStore) Delete(key string) error {
+	_, err := store.kv.Delete(key, nil)
+	return err
+}
+
+func (store *consulStore) List(key string) ([]string, error) {
+	var vals []string
+	kvPairs, _, err := store.kv.List(key, nil)
+
+	if err != nil {
+		return nil, err
+	}
+
+	for _, kv := range kvPairs {
+		vals = append(vals, string(kv.Value))
+	}
+	return vals, err
+}
+
 // NewConsulStore returns a new consul store
 func NewConsulStore() Store {
 	client, err := consul.NewClient(consul.DefaultConfig())

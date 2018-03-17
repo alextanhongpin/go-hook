@@ -9,13 +9,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
-
-	consul "github.com/hashicorp/consul/api"
-	nats "github.com/nats-io/go-nats"
 )
-
-// Func represents a function that takes byte as parameter
-type Func func(params []byte)
 
 // Event represents the individual events that are available for subscription
 type Event struct {
@@ -27,7 +21,7 @@ type Event struct {
 
 // Webhook represents the interface for the webhook package
 type Webhook interface {
-	Register(events []Event) error
+	Register(events ...Event) error
 	Unregister(name string) error
 	Publish(name string, payload interface{}) error
 	Subscribe(name string, fn Func) error
@@ -39,14 +33,14 @@ type Webhook interface {
 }
 
 type webhook struct {
-	Name        string     `json:"name"`
-	Description string     `json:"description"`
-	Version     string     `json:"version"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	Events      []Event    `json:"events"`
-	Queue       *nats.Conn `json:"-"`
-	Store       *consul.KV `json:"-"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	Version     string    `json:"version"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	Events      []Event   `json:"events"`
+	Queue       Queue     `json:"-"`
+	Store       Store     `json:"-"`
 }
 
 type Payload struct {
@@ -55,88 +49,70 @@ type Payload struct {
 	CreatedAt time.Time
 }
 
-// New returns a pointer to the webhook struct
-func New(name, desc string) Webhook {
-	client, err := consul.NewClient(consul.DefaultConfig())
-	if err != nil {
-		panic(err)
-	}
+type Option func(*webhook)
 
-	kv := client.KV()
-
-	nc, err := nats.Connect(nats.DefaultURL)
-	if err != nil {
-		panic(err)
-	}
-
-	// POST to the webhook api
-	return &webhook{
-		Name:        name,
-		Description: desc,
-		Version:     "1.0.0", // TODO: Get from git
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
-		Queue:       nc,
-		Store:       kv,
+func SetName(name string) Option {
+	return func(wk *webhook) {
+		wk.Name = name
 	}
 }
 
+// New returns a pointer to the webhook struct
+func New(opts ...Option) Webhook {
+	// Sane defaults
+	wh := webhook{
+		Name:        "webhook",
+		Description: "a default webhook",
+		Version:     "1.0.0", // TODO: Get from git
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+		Queue:       NewQueue(Nats),
+		Store:       NewStore(Consul),
+	}
+	for _, o := range opts {
+		o(&wh)
+	}
+	return &wh
+}
+
 // Register will create a new entry for the webhook into the store
-func (w *webhook) Register(events []Event) error {
+func (w *webhook) Register(events ...Event) error {
 	w.Events = events
+
 	value, err := json.Marshal(w)
 	if err != nil {
 		return err
 	}
 
-	_, err = w.Store.Put(&consul.KVPair{
-		Key:   w.Name,
-		Value: value,
-	}, nil)
-
-	return err
+	return w.Store.Put(w.Name, value)
 }
 
 // Enable will add the event and the callback url to the store
 func (w *webhook) Enable(resource, event, callbackURL string) error {
 	keys := []string{resource, event, callbackURL}
-	_, err := w.Store.Put(&consul.KVPair{
-		Key:   strings.Join(keys, "/"),
-		Value: []byte(callbackURL),
-	}, nil)
-	return err
+	return w.Store.Put(strings.Join(keys, "/"), []byte(callbackURL))
 }
 
 // Disable will remove the event and the callback url from the store
 func (w *webhook) Disable(resource, event, callbackURL string) error {
 	keys := []string{resource, event, callbackURL}
-	_, err := w.Store.Delete(strings.Join(keys, "/"), nil)
-	if err != nil {
-		return err
-	}
-	return nil
+	return w.Store.Delete(strings.Join(keys, "/"))
 }
 
 // Fetch will fetch all events with the prefix
 func (w *webhook) Fetch(prefix string) ([]string, error) {
-	kvPairs, meta, err := w.Store.List(prefix, nil)
-	if err != nil {
-		return nil, err
-	}
-	for _, kv := range kvPairs {
-		log.Println(kv.Key, string(kv.Value))
-	}
-	log.Println(meta)
-	return nil, nil
+	return w.Store.List(prefix)
 }
 
 // Info returns the info of the webhook based on the name
 func (w *webhook) Info(eventType string) error {
-	kv, meta, err := w.Store.Get(eventType, nil)
-	_ = meta
+	val, err := w.Store.Get(eventType)
+	if err != nil {
+		return err
+	}
 
 	var wh webhook
-	if err := json.Unmarshal(kv.Value, &wh); err != nil {
+	if err := json.Unmarshal(val, &wh); err != nil {
 		return err
 	}
 	w.Name = wh.Name
@@ -173,10 +149,7 @@ func (w *webhook) Subscribe(eventType string, fn Func) error {
 	if err := w.checkExist(eventType); err != nil {
 		return err
 	}
-	_, err := w.Queue.Subscribe(eventType, func(m *nats.Msg) {
-		fn(m.Data)
-	})
-	return err
+	return w.Queue.Subscribe(eventType, fn)
 }
 
 // Post will send a POST request to the targetted endpoint

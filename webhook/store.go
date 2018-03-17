@@ -4,8 +4,8 @@ package webhook
 type Store interface {
 	Put(key string, val []byte) error
 	Get(key string) ([]byte, error)
-	// Set()
-	// List()
+	Delete(key string) error
+	List(key string) ([]string, error)
 }
 
 const (
