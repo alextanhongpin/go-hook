@@ -2,7 +2,7 @@ package webhook
 
 // Func represents a function that takes byte as parameter
 // type Func func(params []byte)
-type Func func(payload *Payload, err error)
+type Func func([]byte)
 
 // Queue represents the interface for the queue
 type Queue interface {

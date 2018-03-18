@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -25,6 +26,19 @@ type webhook struct {
 
 // Register will create a new entry for the webhook into the store
 func (w *webhook) Register(events ...Event) error {
+	// vals, err := w.Fetch(w.Name)
+	// if err != nil {
+	// 	return err
+	// }
+	// if len(vals) != 0 {
+	if err := w.Disco(w.Name); err != nil {
+		log.Println(err)
+	} else {
+		log.Printf("event %s is already registered\n", w.Name)
+		return nil
+	}
+
+	// }
 	w.Events = events
 
 	value, err := json.Marshal(w)
@@ -96,19 +110,12 @@ func (w *webhook) Publish(eventType string, body interface{}) error {
 
 // Subscribe will listen to the registered topic for the payload
 func (w *webhook) Subscribe(eventType string, fn Func) error {
-	// if err := w.checkExist(eventType); err != nil {
-	// 	return err
-	// }
 	return w.Queue.Subscribe(eventType, fn)
 }
 
 // Post will send a POST request to the targetted endpoint
-func (w *webhook) Post(url, eventType string, payload interface{}) error {
-	// payload, err := json.Marshal(payload)
-	// if err != nil {
-	// 	return err
-	// }
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer([]byte("payload")))
+func (w *webhook) Post(url string, payload []byte) error {
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(payload))
 	if err != nil {
 		return err
 	}

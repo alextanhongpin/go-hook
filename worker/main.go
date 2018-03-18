@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"strings"
@@ -19,8 +20,13 @@ func main() {
 	// 	log.Println(err)
 	// }
 
-	if err := hook.Subscribe("book.*", func(msg *webhook.Payload, err error) {
-		key := strings.Join(strings.Split(msg.Subject, "."), "/")
+	if err := hook.Subscribe("book.*", func(msg []byte) {
+		var p webhook.Payload
+		if err := json.Unmarshal(msg, &p); err != nil {
+			log.Println(err)
+			return
+		}
+		key := strings.Join(strings.Split(p.Subject, "."), "/")
 
 		subscribers, err := hook.Fetch(key)
 		if err != nil {
@@ -28,7 +34,12 @@ func main() {
 		}
 
 		for _, sub := range subscribers {
-			log.Println("sending message to:", sub, msg)
+			if err := hook.Post(sub, msg); err != nil {
+				log.Printf("sendError: %s\n", err.Error())
+				continue
+			}
+			// Increment count back to store (or analyse through logs)
+			log.Println("sending message to:", sub, p)
 		}
 
 	}); err != nil {

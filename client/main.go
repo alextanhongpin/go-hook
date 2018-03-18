@@ -1,34 +1,25 @@
 package main
 
 import (
-	"log"
-	"time"
+	"encoding/json"
+	"fmt"
+	"net/http"
 
 	"github.com/alextanhongpin/go-hook/webhook"
 )
 
-type Payload struct {
-	Name string
-}
-
 func main() {
-	hook := webhook.New(webhook.SetName("book"))
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		var payload webhook.Payload
+		err := json.NewDecoder(r.Body).Decode(&payload)
+		fmt.Printf("received body: %v\n", payload)
+		if err != nil {
+			fmt.Printf("error: %v", err)
+		}
+		fmt.Fprintf(w, `{"ok": %v}`, true)
+	})
 
-	if err := hook.Register(
-		webhook.BasicEvent("book.*"),
-		webhook.BasicEvent("book.create"),
-		webhook.BasicEvent("book.update"),
-		webhook.BasicEvent("book.delete"),
-	); err != nil {
-		panic(err)
-	}
-
-	if err := hook.Publish("book.create", Payload{Name: "hello world"}); err != nil {
-		log.Println(err)
-	}
-
-	if err := hook.Publish("book.update", Payload{Name: "hi world"}); err != nil {
-		log.Println(err)
-	}
-	time.Sleep(1 * time.Second)
+	fmt.Println("webhook server: listening to port *:4000. press ctrl + c to cancel.")
+	http.ListenAndServe(":4000", mux)
 }

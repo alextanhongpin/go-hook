@@ -18,7 +18,7 @@ type Webhook interface {
 	Unregister(name string) error
 	Publish(name string, payload interface{}) error
 	Subscribe(name string, fn Func) error
-	Post(url, name string, payload interface{}) error
+	Post(url string, payload []byte) error
 	Disco(name string) error
 	Fetch(event string) ([]string, error)
 	Enable(resource, event, callbackURL string) error

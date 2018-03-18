@@ -1,7 +1,39 @@
-# Webhook Server
+# go-hook
 
-As a developer, I want to send subscribe to events from an API, in order to publish it to a webhook server.
+__go-hook__ makes it easy to send events from your API Server to clients that subscribes to the topic. The initial goal is to make integration to existing applications easy and to provide a UI/CLI that allows user to subscribe/unsubscribe to specific events.
 
+## CLI
+
+```bash
+# Creates a new webhook
+$ go-hook create \
+	--name book \
+	--description "book api that publishes events"
+	--events "book.create,book.update,book.delete"
+
+# Delete webhook
+$ go-hook delete --name book
+
+# Add callback url
+$ go-hook register --event book.create --url http://localhost:4000/
+
+# Remove callback url
+$ go-hook unregister --event book.create --url http://localhost:4000/
+
+# List webhooks
+$ go-hook hooks
+book | book.create, book.update, book.delete
+
+# List registered callback urls
+$ go-hook hooks --list book.create
+http://localhost:4000/
+http://localhost:5000/
+
+$ go-hook hooks --info
+book.create | http://localhost:4000 | 10 invocations
+```
+
+## Design
 
 ## Naive Version
 
@@ -188,6 +220,8 @@ Some thoughts and scenarios that could happen:
 - batching requests?
 - how do I deal with changes to the event name
 - if the callback url is not valid, after posting n amount of errors, it should be unsubscribed automatically, the logs however will persist in a storage so that user can replay the events
+- is InfluxDB the best choice to store the logs data?
+- can we replace nats with Kinesis for persistence?
 
 ## Interface
 

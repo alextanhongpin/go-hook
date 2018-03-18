@@ -1,8 +1,6 @@
 package webhook
 
 import (
-	"encoding/json"
-
 	nats "github.com/nats-io/go-nats"
 )
 
@@ -18,9 +16,7 @@ func (q *natsQueue) Publish(event string, payload []byte) error {
 // Subscribe subscribes to a topic and handles it with a func
 func (q *natsQueue) Subscribe(event string, fn Func) error {
 	_, err := q.conn.Subscribe(event, func(m *nats.Msg) {
-		var p Payload
-		err := json.Unmarshal(m.Data, &p)
-		fn(&p, err)
+		fn(m.Data)
 	})
 	return err
 }
