@@ -1,253 +1,31 @@
 # go-hook
 
-__go-hook__ makes it easy to send events from your API Server to clients that subscribes to the topic. The initial goal is to make integration to existing applications easy and to provide a UI/CLI that allows user to subscribe/unsubscribe to specific events.
+A webhook server that makes it easy to send events from your API Server to clients that subscribes to the topic. The initial goal is to make integration to existing applications easy and to provide a UI/CLI that allows user to subscribe/unsubscribe to specific events.
 
-## CLI
-
-```bash
-# Creates a new webhook
-$ go-hook create \
-	--name book \
-	--description "book api that publishes events"
-	--events "book.create,book.update,book.delete"
-
-# Delete webhook
-$ go-hook delete --name book
-
-# Add callback url
-$ go-hook register --event book.create --url http://localhost:4000/
-
-# Remove callback url
-$ go-hook unregister --event book.create --url http://localhost:4000/
-
-# List webhooks
-$ go-hook hooks
-book | book.create, book.update, book.delete
-
-# List registered callback urls
-$ go-hook hooks --list book.create
-http://localhost:4000/
-http://localhost:5000/
-
-$ go-hook hooks --info
-book.create | http://localhost:4000 | 10 invocations
-```
 
 ## Design
 
-## Naive Version
+## Naive Webhook
 
-```
-[ API Server ] POST /callback_urls --> [ Webhook Server ]
-```
+![naive_one_to_one](assets/naive_one_to_one.png)
 
-The naive version will just contain a minimum of two servers:
+In the naive webhook, the _server_ publishes the events directly to the client. The events can be _create_, _update_, _delete_ or other event sourcing events. The event is published using a `POST` request.
 
-- __API server__ is responsible for publishing the event (e.g. create, update, delete) and associated payload to the webhook server. For simplicity, the event is published using a `POST` request, and only one recipient can be registered at a time.
-- __Webhook server__ is the end client. The __API Server__ will post to this endpoint.
+![naive_one_to_many](assets/naive_one_to_many.png)
 
-## Better Version
+When the number of clients are increasing, it becomes considerably harder to manage them. Aside from that, the server is knowing too much about the clients. It is best to isolate the logic when you are managing many clients.
 
-```bash
-# User subscribes to the webhook
-[ User ] POST /webhooks?callback_urls=http://example.com --> [ Webhook API ]
+## Improved Webhook
 
-# To handle the load, the payload is sent to the queue first
-[ API Server ] SendToQueue --> [ Webhook Worker ] POST /callback_urls --> [ Webhook Server ]
-                                        |
-				        | Check subscribers and get their callback urls
-					|
-			         [ Webhook API ]
-```
+![worker_one_to_one](assets/worker_one_to_one.png)
 
-A better version is to create a separate API that will allow user's to select which events they can subscribe to, and what callback url the payload will be posted to.
+The events will still be sent from the Server to the Client, but through the worker instead. The Worker will receive the events through a queue, which increases reliability of the system. The worker will communicate with the Webhook API to validate the subscribers before sending the payload.
 
-The __API Server__ will be sending the message to a queue too, instead of a direct `POST` request. A worker will subscribe to the queue in order to process the payload, query the list of subcribers (callback urls) and sending them.
+![worker_one_to_many](assets/worker_one_to_many.png)
 
-- webhook_api: allows users to create new webhook subscriptions
-- webhook_server: the webhook will post to this server
-- webhook_worker: the api server will send the payload through a queue to the webhook worker which will validate the payload through the webhook api and send the message to the webhook server
+When the number of clients increases, the Worker can be scaled independently too.
 
-## Webhook API
 
-The Webhook API allows users to subscribe to events and provide a callback url where the events will be posted.
+![worker_one_to_many](assets/worker_with_events.png)
 
-| Method | Endpoint | Description | 
-|--      |--        |--           |
-| GET    | `/webhooks` | Get a list of webhook subscriptions | 
-| POST   | `/webhooks` | Create a webhook with the list of events to be subscribed, and the callback url | 
-| DELETE | `/webhooks` | Clear all registered webhooks |
-| GET    | `/webhooks/{id}` | Get the info for a specific webhook |
-| PUT    | `/webhooks/{id}` | Update the info for a specific webhook |
-| DELETE | `/webhooks/{id}` | Delete a webhook by id |
-
-## Webhook API Model
-
-Webhook:
-
-```js
-{
-	"id": "1",
-	"created_at": "",
-	"updated_at": "",
-	"user_id": "",
-	"is_verified": false, 
-	"status": "active|error|stop",
-	"callback_urls": [],
-	"events": ["books:get", "user:create"], // Do we allow user's to subscribe to different resource topics?
-	"invocation_count": 0,
-	"version": "0.0.1"
-}
-```
-
-Webhook Events:
-
-```js
-{
-	"id": "",
-	"name": "books:get",
-	"service": "", // The service triggering this
-	"count": 0,
-	"created_at": "",
-	"updated_at": "",
-	"callback_url": "",
-	"batch_size": 10, // Number of items per batch
-	"error_count": 0, // 
-	"retry_policy": {},
-	"version": "git version"
-}
-```
-
-Webhook API:
-
-```js
-{
-	"name": "books api",
-	"description": "books that serves api",
-	// "events": [
-	// 	"books:create",
-	// 	"books:update",
-	// 	"books:delete"
-	// ],
-	"events": [
-		{
-			"name": "books:create",
-			"description": "",
-			"created_at": "",
-			"updated_at": "",
-			"enabled": true,
-			"payload": {},
-			"metadata": {}
-		}
-	],
-	"created_at": "",
-	"updated_at": "",
-	"version": ""
-}
-```
-
-## Homogenous/Heteregenous Events
-
-Homogenous events can be different events for the same resource, e.g. `books:get`, `books:create`.
-
-Heteregenous events can be different events and different resources, e.g. `books:create`, `users:create`.
-
-It is preferable to store each event and each resource in a new row to simplify query. Caching can be done through Redis too to reduce calls to the database, and each worker can just point to a redis cluster.
-
-## Internal and External Webhook
-
-If the webhook is open for public to consume (e.g. Slack, Github), then it will require certain authorization. The identity of the creator needs to be embedded during the creation of the webhook too.
-
-## UI
-
-The UI for selecting the topics to subscribe should contain the bare minimum:
-
-```
-Name: Book Webhook
-Description: Contains book events that user can subscribe to
-Created At: 1s ago
-Updated At: 1s ago
-Status: Running
-
-Callback Urls (comma-separated): _____________________ [ VERIFY ]
-
-Events:
-[x] book:create
-[x] book:update
-[-] book:delete
-
-[ OK ]
-```
-
-## Logs
-
-There are a number of useful data that can be logged here:
-
-- range can be average, min, max for hourly/daily/weekly/monthly/yearly
-- response time
-- count for each topics
-- number of events received
-- subscribe/unsubscribe rate
-- registration count
-- message delivery rate
-- failure rate
-- subscriber/events received ratio
-- uptime
-- other SLAs
-
-Example logging format:
-
-```
-[DATE] EVENT_NAME CALLBACK_URL UNIQUE_ID PAYLOAD
-
-[2017-01-01 12:00:32] book:create http://localhost:4000/webhooks 200 qwCs41z {"event_type": "..."}
-[2017-01-01 12:00:32] book:update http://localhost:4000/webhooks 400 r21SfcX {"event_type": "..."}
-```
-
-The logs can be stored in another data source, in order to allow users to `replay` the events, in case they miss it.
-
-## Security and Performance Optimization
-
-Some thoughts and scenarios that could happen:
-
-- can I register any URL?
-- do I need to confirm the URL I am posting at?
-- can I post to other user's URL (DDOS)?
-- how can I verify once-only delivery?
-- what if the server to be posted is down?
-- can I subscribe multiple urls for the same topic?
-- are there any retry policy?
-- batching requests?
-- how do I deal with changes to the event name
-- if the callback url is not valid, after posting n amount of errors, it should be unsubscribed automatically, the logs however will persist in a storage so that user can replay the events
-- is InfluxDB the best choice to store the logs data?
-- can we replace nats with Kinesis for persistence?
-
-## Interface
-
-The webhook package should contain the following interface
-
-| Method | Description |
-|--      |--           |
-| register | Register a new service and events that users can subscribe to. If the service already exists, it will be updated. |
-| deregister | Remove an existing service from the store |
-| update | Update an existing service, if the service does not exist, throws an error |
-| publish | Publish the payload to a topic |
-| subscribe | Subscribes to the topic and receives the payload |
-| fetch | Get all the topics subscribed and the equivalent callback urls to be stored in memory as a dictionary |
-
-## Dependencies
-
-- Nats as the messaging queue
-- Consul as the key-value store
-
-```bash
-# Go client
-go get github.com/nats-io/go-nats
-
-# Server
-go get github.com/nats-io/gnatsd
-
-# UUID
-go get github.com/satori/go.uuid
-```
+In the diagram above, the server registers three different endpoints (`PUT /books`, `POST /books`, `DELETE /books`) that will publish the payload to the Worker. Clients can then choose to subscribe to these events through the UI or CLI by passing them the callback url.
