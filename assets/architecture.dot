@@ -1,0 +1,51 @@
+digraph G {
+  rankdir = LR;
+  compound = true
+  node [shape = box]
+
+  subgraph cluster_0 {
+   label = "Webhook Server"
+   node [ style = filled, colorfill = grey95]
+
+
+
+   api [label = API]
+   storage [label = Storage]
+   q1 [label = Queue]
+   q2 [label = Queue]
+   
+   q1 -> api [label = "Pool Events"]
+   api -> storage
+   api -> api [label = Batch]
+   api -> q2 [label = "Pub/Sub"]
+  }
+
+  subgraph cluster_1 {
+    label = Application
+
+    s [label = "Service"]
+  }
+
+  s -> q1 [label = "Pub/Sub\nTopic"]
+
+  subgraph cluster_2 {
+    label = "Webhook Client"
+
+    c1 [label = "Client 1"]
+    c2 [label = "Client 2"]
+    cN [label = "Client N"]
+  }
+
+  subgraph cluster_3 {
+    label = CLI
+
+    u [label = User]
+  }
+
+  q2 -> c1 [label = "Topic A", ltail = cluster_0, lhead = cluster_2]
+  q2 -> c2 [label = "Topic B", ltail = cluster_0, lhead = cluster_2]
+  q2 -> cN [label = "Topic X", ltail = cluster_0, lhead = cluster_2]
+
+  u -> api [label = "Subscribe\n/Unsubscribe\nEvents"]
+  u -> s [label = Owns, constraint = false, ltail = cluster_3, lhead = cluster_1]
+}

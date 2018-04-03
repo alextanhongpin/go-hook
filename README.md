@@ -1,5 +1,8 @@
 # go-hook
 
+
+![architecture](assets/architecture.png)
+
 A webhook server that makes it easy to send events from your API Server to clients that subscribes to the topic. The initial goal is to make integration to existing applications easy and to provide a UI/CLI that allows user to subscribe/unsubscribe to specific events.
 
 
