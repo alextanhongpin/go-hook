@@ -32,3 +32,8 @@ When the number of clients increases, the Worker can be scaled independently too
 ![worker_one_to_many](assets/worker_with_events.png)
 
 In the diagram above, the server registers three different endpoints (`PUT /books`, `POST /books`, `DELETE /books`) that will publish the payload to the Worker. Clients can then choose to subscribe to these events through the UI or CLI by passing them the callback url.
+
+## TODO
+
+- use labels instead or environment variables to register services
+- use middleware to hook all endpoints
