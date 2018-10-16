@@ -6,13 +6,36 @@
 A webhook server that makes it easy to send events from your API Server to clients that subscribes to the topic. The initial goal is to make integration to existing applications easy and to provide a UI/CLI that allows user to subscribe/unsubscribe to specific events.
 
 
+## Requirements
+
+**Functional requirements:** 
+- system should allow users to register new webhook endpoints
+- system should send the webhook events when a new event is invoked
+
+**Non-functional requirements:**
+- system should be highly available, no messages should be dropped
+- system should be resilient, messages are persisted in a storage
+- system should ensure one-time delivery only
+
+
+## Flow
+
+The depicts the scenario where a user register an endpoint with the webhook server:
+
+1. The _Book Server_ handles book creation, update and delete. 
+2. _User A_ wants to subscribe to new book events.
+3. _Book Server_ has the `POST /books` endpoint registered with the webhook server and is sending events regularly when a new book is created.
+4. _User A_ register a POST endpoint of this server, `POST /receive-events` with a valid API Key.
+5. When someone create a new book, message is send from _Book Server_ to _Webhook Server_. _Webhook Server_ will then send the message to all endpoints registered. 
+6. _User A_ receives a new event at the `POST /receive-events endpoint`.
+
 ## Design
 
 ## Naive Webhook
 
 ![naive_one_to_one](assets/naive_one_to_one.png)
 
-In the naive webhook, the _server_ publishes the events directly to the client. The events can be _create_, _update_, _delete_ or other event sourcing events. The event is published using a `POST` request.
+In the naive webhook, the _server_ publishes the events **directly** to the client. The events can be _create_, _update_, _delete_ or other event sourcing events. The event is published using a `POST` request. This design is not desired for two reason - one, the server needs to know the client it is sending too, and does not scale when clients can be added/removed dynamically. Also, it violates the single responsibility principles. Second, the delivery should be asynchronous, not synchronous. A better way is to send the message to a persistent queue first, so that any failures can be retried. Note that in some case, it is better to just drop the message than retrying as we want to avoid sending the same message twice.
 
 ![naive_one_to_many](assets/naive_one_to_many.png)
 
@@ -33,7 +56,57 @@ When the number of clients increases, the Worker can be scaled independently too
 
 In the diagram above, the server registers three different endpoints (`PUT /books`, `POST /books`, `DELETE /books`) that will publish the payload to the Worker. Clients can then choose to subscribe to these events through the UI or CLI by passing them the callback url.
 
+## Pseudo-code
+
+The server endpoint that is registered to the webhook server may perform the following:
+
+```python
+def service():
+  # Business logic, e.g. create books
+  # At the end, we want to deliver this event to the subscribers. The code below will send the payload to the queue.
+  webhook.send(topic="new_book", msg=newbook)
+```
+
+And this is how the webhook server will pool for the events. A _pull model_ will keep pooling for new events, a _push model_ is a more event-driven system and will be triggered whenever new events are created:
+```
+def worker():
+  # Pool events
+  while True:
+    topic, msg = webhook.receive()
+    
+    # Check for subscribers for this topic. The result will be a bunch of uris where a POST request will be executed.
+    uris = getSubscribersUris(topic)
+    
+    # This can be run in a thread.
+    for uri in uris:
+      try:
+        request(method="POST", uri=uri, body=msg)
+      except e:
+        # If error keeps repeating for the same uri for a certain threshold, remove the uri.
+        pass
+```
+
+This is how a user might register his endpoint to receive subscription:
+
+```bash
+$ curl -XPOST -d '{"topic": "new_book", "callback_uri": "http://localhost:4000/receive-events"}' https://webhook.server/webhooks
+```
+
+The user should then create a client to receive events from:
+
+```js
+const app = require('express')()
+app.post('/receive-events', (req, res) => {
+  const msg = req.body
+  // Do something with the received payload.
+})
+app.listen(4000)
+```
+
 ## TODO
 
 - use labels instead or environment variables to register services
 - use middleware to hook all endpoints
+
+## References 
+- https://dzone.com/articles/producers-and-consumers-part-3
