@@ -11,12 +11,15 @@ A webhook server that makes it easy to send events from your API Server to clien
 **Functional requirements:** 
 - system should allow users to register new webhook endpoints
 - system should send the webhook events when a new event is invoked
+- system should ensure one-time delivery only
+- system should rate-limit the number of requests send
+- system should retry the delivery for a certain amount of time
+- system should mark the number of failed delivery attempts
 
 **Non-functional requirements:**
 - system should be highly available, no messages should be dropped
 - system should be resilient, messages are persisted in a storage
-- system should ensure one-time delivery only
-
+- system should be idempotent, the delivery should not change the state of the payload
 
 ## Flow
 
@@ -28,6 +31,16 @@ The depicts the scenario where a user register an endpoint with the webhook serv
 4. _User A_ register a POST endpoint of this server, `POST /receive-events` with a valid API Key.
 5. When someone create a new book, message is send from _Book Server_ to _Webhook Server_. _Webhook Server_ will then send the message to all endpoints registered. 
 6. _User A_ receives a new event at the `POST /receive-events endpoint`.
+
+
+## Components
+
+I realize the components naming convention should be the same as the interface naming convention, using words the suffix `-er`. `-er` in the sense of writ-er, bak-er, is the agentive suffix. It turns a verb into a noun that refers to the agent that performs that verb.
+
+
+**EventCreator:** The service that is responsible for producing the events. It will call the **Worker** to process the requests asynchronously.
+**Worker:** The worker receives events from **EventCreator**, and is responsible for sending the messages to **Subscriber**.
+**Subscriber:** Clients that subscribes to the webhook event. The list is dynamic, and the client can only receive events the moment they are subscribed.
 
 ## Design
 
@@ -68,7 +81,7 @@ def service():
 ```
 
 And this is how the webhook server will pool for the events. A _pull model_ will keep pooling for new events, a _push model_ is a more event-driven system and will be triggered whenever new events are created:
-```
+```python
 def worker():
   # Pool events
   while True:
@@ -77,10 +90,15 @@ def worker():
     # Check for subscribers for this topic. The result will be a bunch of uris where a POST request will be executed.
     uris = getSubscribersUris(topic)
     
-    # This can be run in a thread.
+    # This can be run in a separate thread.
     for uri in uris:
       try:
-        request(method="POST", uri=uri, body=msg)
+        # The body response should be empty. Do validation to ensure subscribers are not sending payload.
+        result, body = request(method="POST", uri=uri, body=msg)
+        if result.code == 200:
+          # Mark as delivered. Update delivery status for metrics.
+        else:
+          # Retry for n-times before marking as failed.
       except e:
         # If error keeps repeating for the same uri for a certain threshold, remove the uri.
         pass
@@ -92,6 +110,11 @@ This is how a user might register his endpoint to receive subscription:
 $ curl -XPOST -d '{"topic": "new_book", "callback_uri": "http://localhost:4000/receive-events"}' https://webhook.server/webhooks
 ```
 
+The webhook api should check for the following:
+- only valid uris can be registered.
+- the uris should be available during registration by invoking a simple post with a registration token.
+- the registered endpoint should not return any response in the body.
+
 The user should then create a client to receive events from:
 
 ```js
@@ -99,6 +122,9 @@ const app = require('express')()
 app.post('/receive-events', (req, res) => {
   const msg = req.body
   // Do something with the received payload.
+  
+  // Return status 200 to indicate success, and body must be empty.
+  res.status(200).json({})
 })
 app.listen(4000)
 ```
@@ -110,3 +136,6 @@ app.listen(4000)
 
 ## References 
 - https://dzone.com/articles/producers-and-consumers-part-3
+- https://medium.com/hootsuite-engineering/a-scalable-reliable-webhook-dispatcher-powered-by-kafka-2dc3d677f16b
+- https://medium.com/ibm-watson-data-lab/build-scalable-webhooks-with-a-queue-and-workers-setup-3b2cbc228220
+- https://medium.com/square-corner-blog/stop-using-servers-to-handle-webhooks-675d5dc926c0
