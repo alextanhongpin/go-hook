@@ -15,6 +15,7 @@ A webhook server that makes it easy to send events from your API Server to clien
 - system should rate-limit the number of requests send
 - system should retry the delivery for a certain amount of time
 - system should mark the number of failed delivery attempts
+- system should register new client endpoints seamlessly
 
 **Non-functional requirements:**
 - system should be highly available, no messages should be dropped
@@ -41,6 +42,7 @@ I realize the components naming convention should be the same as the interface n
 **EventCreator:** The service that is responsible for producing the events. It will call the **Worker** to process the requests asynchronously.
 **Worker:** The worker receives events from **EventCreator**, and is responsible for sending the messages to **Subscriber**.
 **Subscriber:** Clients that subscribes to the webhook event. The list is dynamic, and the client can only receive events the moment they are subscribed.
+**Registrator:** The place to register new client endpoints. The registrator provides APIs for clients to add/remove the webhook endpoints dynamically. The registrator will dynamically dispatch the new endpoints to the workers through pub/sub to notify them of the new endpoints.
 
 ## Design
 
@@ -104,7 +106,7 @@ def worker():
         pass
 ```
 
-This is how a user might register his endpoint to receive subscription:
+This is how a user might register his endpoint at the **Registrator** to receive subscription:
 
 ```bash
 $ curl -XPOST -d '{"topic": "new_book", "callback_uri": "http://localhost:4000/receive-events"}' https://webhook.server/webhooks
@@ -114,6 +116,33 @@ The webhook api should check for the following:
 - only valid uris can be registered.
 - the uris should be available during registration by invoking a simple post with a registration token.
 - the registered endpoint should not return any response in the body.
+
+An example on how the registrator may look like:
+
+```python
+def register():
+  let body = {
+    "topic": "new_book",
+    "callback_uri": "http://localhost:4000/receive-events"
+  }
+  // Should throw error when params are invalid.
+  validate(body)
+  
+  // Attempt to call the endpoint to validate that it exists. Also, it will send a registration token alongside
+  // which needs to be send back to the server to validate the authenticity of the client.
+  res = request(body.callback_uri)
+  if res.code it not 200:
+    error("invalid")
+  
+  // Store to the database first.
+  create(body)
+
+def authz():
+  let body = {"token": "token_from_request"}
+  if not valid(body.token):
+    error("invalid token")
+  acknowledge(body.token)
+```
 
 The user should then create a client to receive events from:
 
