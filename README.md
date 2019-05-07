@@ -163,6 +163,17 @@ app.listen(4000)
 - use labels instead or environment variables to register services
 - use middleware to hook all endpoints
 
+## Thoughts
+
+- the system (server) should support the hooks first (publishing events), without it, there's no way for the user to subscribe to those events. In other words, user can only subscribe to webhook events that are available. One possible idea is to label each services endpoint with a name, and log the events out when it happened, and when streaming the logs, publish it to different subscribers.
+- the subscription for different events may differ in count - by a huge margin. Some are definitely more popular than the rest. How to deal with the delivery for such cases?
+- to mark the event as delivered, we probably need both a status flag and status timestamp. Status can be retry too if we need to be able to retry it, or due with a due date in the future
+- the outgoing events is proportional to the incoming requests, if we have a lot of incoming requests, we need to find a way to smoothen it (leaky bucket?) without compromising speed (if we have 100 req/s, but we are sending it out at 10 req/s, it is not going to scale when the number of requests increases)
+- registering, unregistering the events real time is going to take a toll. If the requests are already being processed (since it is in a batch, it's harder to cancel individual events), it could only be unregistered in the next cycle. But having too many updates will slow down the system.
+- delivering to multiple endpoints. How to detect if the endpoints are no longer valid and blacklist them? send a token to register the endpoints.
+- a subscription endpoint may have many registered endpoints. For every requests sent out, we need to deliver them to N endpoints, which is going to grow in size. Also, those endpoints needs to be kept in memory (?) since querying them all the time is going to be taxing.
+
+
 ## References 
 - https://dzone.com/articles/producers-and-consumers-part-3
 - https://medium.com/hootsuite-engineering/a-scalable-reliable-webhook-dispatcher-powered-by-kafka-2dc3d677f16b
