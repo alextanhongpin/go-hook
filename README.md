@@ -172,6 +172,7 @@ app.listen(4000)
 - registering, unregistering the events real time is going to take a toll. If the requests are already being processed (since it is in a batch, it's harder to cancel individual events), it could only be unregistered in the next cycle. But having too many updates will slow down the system.
 - delivering to multiple endpoints. How to detect if the endpoints are no longer valid and blacklist them? send a token to register the endpoints.
 - a subscription endpoint may have many registered endpoints. For every requests sent out, we need to deliver them to N endpoints, which is going to grow in size. Also, those endpoints needs to be kept in memory (?) since querying them all the time is going to be taxing.
+- how to deal with status change in webhook events, e.g. for a payment system, the payment status can be `PENDING`, `PAID`, `REJECTED` etc. Do we allow those past events to be queried, and resend?
 
 
 ## References 
