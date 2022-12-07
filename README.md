@@ -16,6 +16,7 @@ A webhook server that makes it easy to send events from your API Server to clien
 - system should retry the delivery for a certain amount of time
 - system should mark the number of failed delivery attempts
 - system should register new client endpoints seamlessly
+- system should not care about the ordering of events published
 
 **Non-functional requirements:**
 - system should be highly available, no messages should be dropped
@@ -180,3 +181,4 @@ app.listen(4000)
 - https://medium.com/hootsuite-engineering/a-scalable-reliable-webhook-dispatcher-powered-by-kafka-2dc3d677f16b
 - https://medium.com/ibm-watson-data-lab/build-scalable-webhooks-with-a-queue-and-workers-setup-3b2cbc228220
 - https://medium.com/square-corner-blog/stop-using-servers-to-handle-webhooks-675d5dc926c0
+- https://workos.com/blog/building-webhooks-into-your-application-guidelines-and-best-practices
